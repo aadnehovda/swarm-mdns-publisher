@@ -42,6 +42,11 @@ func New(cfg Config, logger *slog.Logger) (*Publisher, error) {
 }
 
 func (p *Publisher) Close() {
+	if p.docker != nil {
+		if err := p.docker.Close(); err != nil {
+			p.logger.Error("closing Docker client failed", "err", err)
+		}
+	}
 }
 
 func (p *Publisher) Run(ctx context.Context) error {

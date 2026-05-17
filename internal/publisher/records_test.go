@@ -2,28 +2,32 @@ package publisher
 
 import (
 	"testing"
+
+	"github.com/docker/docker/api/types/swarm"
 )
 
 func TestServiceFromSwarmAdvertisesIngressPort(t *testing.T) {
-	service := DockerService{
-		Spec: ServiceSpec{
-			Name: "portainer_server",
-			Labels: map[string]string{
-				labelEnable:      "true",
-				labelHostname:    "portainer.local",
-				labelAddress:     "10.45.45.2",
-				labelServiceType: "_https._tcp",
-				labelServiceName: "Portainer",
-				stackLabel:       "portainer",
+	service := swarm.Service{
+		Spec: swarm.ServiceSpec{
+			Annotations: swarm.Annotations{
+				Name: "portainer_server",
+				Labels: map[string]string{
+					labelEnable:      "true",
+					labelHostname:    "portainer.local",
+					labelAddress:     "10.45.45.2",
+					labelServiceType: "_https._tcp",
+					labelServiceName: "Portainer",
+					stackLabel:       "portainer",
+				},
 			},
 		},
-		Endpoint: Endpoint{
-			Ports: []PortConfig{
+		Endpoint: swarm.Endpoint{
+			Ports: []swarm.PortConfig{
 				{
-					Protocol:      "tcp",
+					Protocol:      swarm.PortConfigProtocolTCP,
 					TargetPort:    9443,
 					PublishedPort: 9443,
-					PublishMode:   "ingress",
+					PublishMode:   swarm.PortConfigPublishModeIngress,
 				},
 			},
 		},
@@ -52,8 +56,10 @@ func TestServiceFromSwarmAdvertisesIngressPort(t *testing.T) {
 }
 
 func TestServiceFromSwarmIgnoresDisabledService(t *testing.T) {
-	advertised, err := ServiceFromSwarm(DockerService{
-		Spec: ServiceSpec{Name: "disabled"},
+	advertised, err := ServiceFromSwarm(swarm.Service{
+		Spec: swarm.ServiceSpec{
+			Annotations: swarm.Annotations{Name: "disabled"},
+		},
 	}, "10.45.45.2")
 	if err != nil {
 		t.Fatal(err)
@@ -64,22 +70,24 @@ func TestServiceFromSwarmIgnoresDisabledService(t *testing.T) {
 }
 
 func TestServiceFromSwarmSkipsHostPublishedPort(t *testing.T) {
-	service := DockerService{
-		Spec: ServiceSpec{
-			Name: "host_mode",
-			Labels: map[string]string{
-				labelEnable:      "true",
-				labelHostname:    "host-mode.local",
-				labelServiceType: "_http._tcp",
+	service := swarm.Service{
+		Spec: swarm.ServiceSpec{
+			Annotations: swarm.Annotations{
+				Name: "host_mode",
+				Labels: map[string]string{
+					labelEnable:      "true",
+					labelHostname:    "host-mode.local",
+					labelServiceType: "_http._tcp",
+				},
 			},
 		},
-		Endpoint: Endpoint{
-			Ports: []PortConfig{
+		Endpoint: swarm.Endpoint{
+			Ports: []swarm.PortConfig{
 				{
-					Protocol:      "tcp",
+					Protocol:      swarm.PortConfigProtocolTCP,
 					TargetPort:    8080,
 					PublishedPort: 8080,
-					PublishMode:   "host",
+					PublishMode:   swarm.PortConfigPublishModeHost,
 				},
 			},
 		},
@@ -95,12 +103,14 @@ func TestServiceFromSwarmSkipsHostPublishedPort(t *testing.T) {
 }
 
 func TestServiceFromSwarmRequiresHostnameForEnabledService(t *testing.T) {
-	service := DockerService{
-		Spec: ServiceSpec{
-			Name: "missing_hostname",
-			Labels: map[string]string{
-				labelEnable:      "true",
-				labelServiceType: "_http._tcp",
+	service := swarm.Service{
+		Spec: swarm.ServiceSpec{
+			Annotations: swarm.Annotations{
+				Name: "missing_hostname",
+				Labels: map[string]string{
+					labelEnable:      "true",
+					labelServiceType: "_http._tcp",
+				},
 			},
 		},
 	}

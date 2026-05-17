@@ -2,3 +2,5 @@ swarm-mdns-publisher
 *.exe
 *.test
 coverage.out
+.gocache/
+.gopath/

@@ -5,6 +5,8 @@ import (
 	"net"
 	"sort"
 	"strings"
+
+	"github.com/docker/docker/api/types/swarm"
 )
 
 const (
@@ -30,7 +32,7 @@ type AdvertisedService struct {
 	TXT          map[string]string
 }
 
-func ServicesFromSwarm(services []DockerService, defaultAddress string) ([]AdvertisedService, error) {
+func ServicesFromSwarm(services []swarm.Service, defaultAddress string) ([]AdvertisedService, error) {
 	var advertised []AdvertisedService
 	for _, service := range services {
 		generated, err := ServiceFromSwarm(service, defaultAddress)
@@ -51,7 +53,7 @@ func ServicesFromSwarm(services []DockerService, defaultAddress string) ([]Adver
 	return advertised, nil
 }
 
-func ServiceFromSwarm(service DockerService, defaultAddress string) ([]AdvertisedService, error) {
+func ServiceFromSwarm(service swarm.Service, defaultAddress string) ([]AdvertisedService, error) {
 	labels := service.Spec.Labels
 	if strings.ToLower(labels[labelEnable]) != "true" {
 		return nil, nil
@@ -83,23 +85,23 @@ func ServiceFromSwarm(service DockerService, defaultAddress string) ([]Advertise
 
 	var advertised []AdvertisedService
 	for _, port := range service.Endpoint.Ports {
-		if port.PublishMode != "ingress" {
+		if port.PublishMode != swarm.PortConfigPublishModeIngress {
 			continue
 		}
 		if port.PublishedPort == 0 {
 			continue
 		}
-		if port.Protocol != "tcp" && port.Protocol != "udp" {
+		if port.Protocol != swarm.PortConfigProtocolTCP && port.Protocol != swarm.PortConfigProtocolUDP {
 			continue
 		}
 
 		stack := labels[stackLabel]
 		txt := map[string]string{
 			"service":        service.Spec.Name,
-			"protocol":       port.Protocol,
+			"protocol":       string(port.Protocol),
 			"target_port":    fmt.Sprint(port.TargetPort),
 			"published_port": fmt.Sprint(port.PublishedPort),
-			"publish_mode":   port.PublishMode,
+			"publish_mode":   string(port.PublishMode),
 		}
 		if stack != "" {
 			txt["stack"] = stack
@@ -114,8 +116,8 @@ func ServiceFromSwarm(service DockerService, defaultAddress string) ([]Advertise
 			Address:      address,
 			Port:         port.PublishedPort,
 			TargetPort:   port.TargetPort,
-			Protocol:     port.Protocol,
-			PublishMode:  port.PublishMode,
+			Protocol:     string(port.Protocol),
+			PublishMode:  string(port.PublishMode),
 			TXT:          txt,
 		})
 	}

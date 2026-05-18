@@ -33,9 +33,25 @@ func (c *DockerClient) ListServices(ctx context.Context) ([]swarm.Service, error
 	return c.client.ServiceList(ctx, swarm.ServiceListOptions{})
 }
 
+func (c *DockerClient) ListTasks(ctx context.Context) ([]swarm.Task, error) {
+	return c.client.TaskList(ctx, swarm.TaskListOptions{})
+}
+
+func (c *DockerClient) LocalNodeID(ctx context.Context) (string, error) {
+	info, err := c.client.Info(ctx)
+	if err != nil {
+		return "", err
+	}
+	return info.Swarm.NodeID, nil
+}
+
 func (c *DockerClient) WatchServiceEvents(ctx context.Context) (<-chan events.Message, <-chan error) {
 	return c.client.Events(ctx, events.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("type", "service")),
+		Filters: filters.NewArgs(
+			filters.Arg("type", "service"),
+			filters.Arg("type", "task"),
+			filters.Arg("type", "node"),
+		),
 	})
 }
 

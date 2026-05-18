@@ -32,10 +32,10 @@ type AdvertisedService struct {
 	TXT          map[string]string
 }
 
-func ServicesFromSwarm(services []swarm.Service, defaultAddress string) ([]AdvertisedService, error) {
+func ServicesFromSwarm(services []swarm.Service, addresses AddressConfig) ([]AdvertisedService, error) {
 	var advertised []AdvertisedService
 	for _, service := range services {
-		generated, err := ServiceFromSwarm(service, defaultAddress)
+		generated, err := ServiceFromSwarm(service, addresses)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +53,7 @@ func ServicesFromSwarm(services []swarm.Service, defaultAddress string) ([]Adver
 	return advertised, nil
 }
 
-func ServiceFromSwarm(service swarm.Service, defaultAddress string) ([]AdvertisedService, error) {
+func ServiceFromSwarm(service swarm.Service, addresses AddressConfig) ([]AdvertisedService, error) {
 	labels := service.Spec.Labels
 	if strings.ToLower(labels[labelEnable]) != "true" {
 		return nil, nil
@@ -69,13 +69,9 @@ func ServiceFromSwarm(service swarm.Service, defaultAddress string) ([]Advertise
 		return nil, nil
 	}
 
-	addressText := labels[labelAddress]
-	if addressText == "" {
-		addressText = defaultAddress
-	}
-	address := net.ParseIP(addressText)
-	if address == nil {
-		return nil, fmt.Errorf("service %q has invalid mDNS address %q", service.Spec.Name, addressText)
+	address, addressSource, err := addresses.Resolve(labels)
+	if err != nil {
+		return nil, fmt.Errorf("service %q: %w", service.Spec.Name, err)
 	}
 
 	instanceName := labels[labelServiceName]
@@ -102,6 +98,7 @@ func ServiceFromSwarm(service swarm.Service, defaultAddress string) ([]Advertise
 			"target_port":    fmt.Sprint(port.TargetPort),
 			"published_port": fmt.Sprint(port.PublishedPort),
 			"publish_mode":   string(port.PublishMode),
+			"address_source": addressSource,
 		}
 		if stack != "" {
 			txt["stack"] = stack

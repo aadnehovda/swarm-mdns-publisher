@@ -3,11 +3,13 @@ package publisher
 import (
 	"context"
 	"log/slog"
+	"net"
 	"time"
 )
 
 type Config struct {
 	DefaultAddress string
+	ProbeAddress   string
 	RefreshEvery   time.Duration
 }
 
@@ -31,6 +33,15 @@ func New(cfg Config, logger *slog.Logger) (*Publisher, error) {
 	mdnsResponder, err := NewDynamicResponder(logger)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.DefaultAddress == "" {
+		fallback, err := DetectOutboundIP(cfg.ProbeAddress)
+		if err != nil {
+			logger.Warn("automatic mDNS address detection failed", "probe_address", probeAddressOrDefault(cfg.ProbeAddress), "err", err)
+		} else {
+			logger.Info("detected fallback mDNS address", "probe_address", probeAddressOrDefault(cfg.ProbeAddress), "address", fallback)
+		}
 	}
 
 	return &Publisher{
@@ -98,9 +109,31 @@ func (p *Publisher) refresh(ctx context.Context) error {
 		return err
 	}
 
-	advertised, err := ServicesFromSwarm(services, p.cfg.DefaultAddress)
+	fallbackIP, err := p.fallbackIP()
+	if err != nil {
+		p.logger.Warn("automatic mDNS address detection failed", "probe_address", probeAddressOrDefault(p.cfg.ProbeAddress), "err", err)
+	}
+
+	advertised, err := ServicesFromSwarm(services, AddressConfig{
+		DefaultAddress: p.cfg.DefaultAddress,
+		FallbackIP:     fallbackIP,
+	})
 	if err != nil {
 		return err
 	}
 	return p.mdns.Replace(advertised)
+}
+
+func (p *Publisher) fallbackIP() (net.IP, error) {
+	if p.cfg.DefaultAddress != "" {
+		return nil, nil
+	}
+	return DetectOutboundIP(p.cfg.ProbeAddress)
+}
+
+func probeAddressOrDefault(value string) string {
+	if value == "" {
+		return defaultProbeAddress
+	}
+	return value
 }

@@ -1,6 +1,7 @@
 package publisher
 
 import (
+	"net"
 	"testing"
 
 	"github.com/docker/docker/api/types/swarm"
@@ -33,7 +34,9 @@ func TestServiceFromSwarmAdvertisesIngressPort(t *testing.T) {
 		},
 	}
 
-	advertised, err := ServiceFromSwarm(service, "10.45.45.2")
+	advertised, err := ServiceFromSwarm(service, AddressConfig{
+		DefaultAddress: "10.45.45.2",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,6 +56,9 @@ func TestServiceFromSwarmAdvertisesIngressPort(t *testing.T) {
 	if got.Address.String() != "10.45.45.2" {
 		t.Fatalf("unexpected address %s", got.Address.String())
 	}
+	if got.TXT["address_source"] != labelAddress {
+		t.Fatalf("unexpected address source %q", got.TXT["address_source"])
+	}
 }
 
 func TestServiceFromSwarmIgnoresDisabledService(t *testing.T) {
@@ -60,7 +66,7 @@ func TestServiceFromSwarmIgnoresDisabledService(t *testing.T) {
 		Spec: swarm.ServiceSpec{
 			Annotations: swarm.Annotations{Name: "disabled"},
 		},
-	}, "10.45.45.2")
+	}, AddressConfig{DefaultAddress: "10.45.45.2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +99,9 @@ func TestServiceFromSwarmSkipsHostPublishedPort(t *testing.T) {
 		},
 	}
 
-	advertised, err := ServiceFromSwarm(service, "10.45.45.2")
+	advertised, err := ServiceFromSwarm(service, AddressConfig{
+		DefaultAddress: "10.45.45.2",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +123,75 @@ func TestServiceFromSwarmRequiresHostnameForEnabledService(t *testing.T) {
 		},
 	}
 
-	if _, err := ServiceFromSwarm(service, "10.45.45.2"); err == nil {
+	if _, err := ServiceFromSwarm(service, AddressConfig{DefaultAddress: "10.45.45.2"}); err == nil {
 		t.Fatal("expected missing hostname error")
+	}
+}
+
+func TestServiceFromSwarmUsesDefaultAddressWhenServiceAddressMissing(t *testing.T) {
+	service := enabledHTTPService()
+
+	advertised, err := ServiceFromSwarm(service, AddressConfig{
+		DefaultAddress: "10.45.45.2",
+		FallbackIP:     net.ParseIP("192.168.1.69"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := advertised[0].Address.String(); got != "10.45.45.2" {
+		t.Fatalf("unexpected address %s", got)
+	}
+	if got := advertised[0].TXT["address_source"]; got != "MDNS_DEFAULT_ADDRESS" {
+		t.Fatalf("unexpected address source %q", got)
+	}
+}
+
+func TestServiceFromSwarmUsesFallbackAddressWhenConfiguredAddressesMissing(t *testing.T) {
+	service := enabledHTTPService()
+
+	advertised, err := ServiceFromSwarm(service, AddressConfig{
+		FallbackIP: net.ParseIP("192.168.1.69"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := advertised[0].Address.String(); got != "192.168.1.69" {
+		t.Fatalf("unexpected address %s", got)
+	}
+	if got := advertised[0].TXT["address_source"]; got != "auto" {
+		t.Fatalf("unexpected address source %q", got)
+	}
+}
+
+func TestServiceFromSwarmErrorsWhenNoAddressCanBeResolved(t *testing.T) {
+	service := enabledHTTPService()
+
+	if _, err := ServiceFromSwarm(service, AddressConfig{}); err == nil {
+		t.Fatal("expected missing address error")
+	}
+}
+
+func enabledHTTPService() swarm.Service {
+	return swarm.Service{
+		Spec: swarm.ServiceSpec{
+			Annotations: swarm.Annotations{
+				Name: "web",
+				Labels: map[string]string{
+					labelEnable:      "true",
+					labelHostname:    "web.local",
+					labelServiceType: "_http._tcp",
+				},
+			},
+		},
+		Endpoint: swarm.Endpoint{
+			Ports: []swarm.PortConfig{
+				{
+					Protocol:      swarm.PortConfigProtocolTCP,
+					TargetPort:    80,
+					PublishedPort: 8080,
+					PublishMode:   swarm.PortConfigPublishModeIngress,
+				},
+			},
+		},
 	}
 }

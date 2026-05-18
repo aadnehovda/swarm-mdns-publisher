@@ -26,6 +26,16 @@ func (c AddressConfig) Resolve(labels map[string]string) (net.IP, string, error)
 	return nil, "", fmt.Errorf("no mDNS address configured and automatic address detection failed")
 }
 
+func (c AddressConfig) ResolveHost(labels map[string]string) (net.IP, string, error) {
+	if addressText := strings.TrimSpace(labels[labelAddress]); addressText != "" {
+		return parseAdvertiseIP(addressText, labelAddress)
+	}
+	if c.FallbackIP != nil {
+		return c.FallbackIP, "auto", nil
+	}
+	return nil, "", fmt.Errorf("no host-mode mDNS address configured and automatic address detection failed")
+}
+
 func parseAdvertiseIP(value, source string) (net.IP, string, error) {
 	address := net.ParseIP(value)
 	if address == nil {

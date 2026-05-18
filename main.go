@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"io"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -14,15 +12,13 @@ import (
 )
 
 func main() {
-	// hashicorp/mdns writes packet parse noise to the global standard logger.
-	log.SetOutput(io.Discard)
-
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 
 	cfg := publisher.Config{
-		DefaultAddress: getenv("MDNS_DEFAULT_ADDRESS", "10.45.45.2"),
+		DefaultAddress: os.Getenv("MDNS_DEFAULT_ADDRESS"),
+		ProbeAddress:   os.Getenv("MDNS_PROBE_ADDRESS"),
 		RefreshEvery:   5 * time.Minute,
 	}
 
@@ -40,12 +36,4 @@ func main() {
 		logger.Error("publisher stopped", "err", err)
 		os.Exit(1)
 	}
-}
-
-func getenv(key, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
-	}
-	return value
 }

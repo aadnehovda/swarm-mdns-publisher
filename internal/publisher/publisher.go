@@ -35,13 +35,11 @@ func New(cfg Config, logger *slog.Logger) (*Publisher, error) {
 		return nil, err
 	}
 
-	if cfg.DefaultAddress == "" {
-		fallback, err := DetectOutboundIP(cfg.ProbeAddress)
-		if err != nil {
-			logger.Warn("automatic mDNS address detection failed", "probe_address", probeAddressOrDefault(cfg.ProbeAddress), "err", err)
-		} else {
-			logger.Info("detected fallback mDNS address", "probe_address", probeAddressOrDefault(cfg.ProbeAddress), "address", fallback)
-		}
+	fallback, err := DetectOutboundIP(cfg.ProbeAddress)
+	if err != nil {
+		logger.Warn("automatic mDNS address detection failed", "probe_address", probeAddressOrDefault(cfg.ProbeAddress), "err", err)
+	} else {
+		logger.Info("detected fallback mDNS address", "probe_address", probeAddressOrDefault(cfg.ProbeAddress), "address", fallback)
 	}
 
 	return &Publisher{
@@ -133,9 +131,6 @@ func (p *Publisher) refresh(ctx context.Context) error {
 }
 
 func (p *Publisher) fallbackIP() (net.IP, error) {
-	if p.cfg.DefaultAddress != "" {
-		return nil, nil
-	}
 	return DetectOutboundIP(p.cfg.ProbeAddress)
 }
 

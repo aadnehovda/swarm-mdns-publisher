@@ -108,16 +108,24 @@ func (p *Publisher) refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	tasks, err := p.docker.ListTasks(ctx)
+	if err != nil {
+		return err
+	}
+	localNodeID, err := p.docker.LocalNodeID(ctx)
+	if err != nil {
+		return err
+	}
 
 	fallbackIP, err := p.fallbackIP()
 	if err != nil {
 		p.logger.Warn("automatic mDNS address detection failed", "probe_address", probeAddressOrDefault(p.cfg.ProbeAddress), "err", err)
 	}
 
-	advertised, err := ServicesFromSwarm(services, AddressConfig{
+	advertised, err := ServicesFromSwarm(services, tasks, localNodeID, AddressConfig{
 		DefaultAddress: p.cfg.DefaultAddress,
 		FallbackIP:     fallbackIP,
-	})
+	}, p.logger)
 	if err != nil {
 		return err
 	}

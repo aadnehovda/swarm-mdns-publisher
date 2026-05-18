@@ -21,8 +21,13 @@ Only ingress-published ports are advertised by default.
 Ingress-published addresses are selected in this order:
 
 1. Service label `mdns.address`
-2. Environment variable `MDNS_DEFAULT_ADDRESS`
+2. Optional environment variable `MDNS_DEFAULT_ADDRESS`
 3. Automatic local source address detection using UDP probe `MDNS_PROBE_ADDRESS`
+
+Most deployments should leave `MDNS_DEFAULT_ADDRESS` unset so records use the
+node address selected by the host routing table. Set it only when all
+ingress-published services should advertise a shared reachable address, such as
+a routed loopback anycast/VIP.
 
 Host-published ports are advertised only from the node running the task.
 Host mode intentionally ignores `MDNS_DEFAULT_ADDRESS`, because that value may
@@ -75,8 +80,10 @@ services:
         mdns.txt.requires_api_password: "True"
 ```
 
-With `MDNS_DEFAULT_ADDRESS=10.45.45.2`, this advertises Home Assistant at
-`homeassistant.local:8123` on `10.45.45.2`.
+By default this advertises Home Assistant at `homeassistant.local:8123` on the
+node address selected by automatic source address detection. If your Swarm uses
+an ingress VIP or anycast address, set `MDNS_DEFAULT_ADDRESS` on the publisher
+or `mdns.address` on the service.
 
 ### Host-Published Service
 

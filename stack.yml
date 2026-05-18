@@ -3,8 +3,6 @@ version: "3.8"
 services:
   publisher:
     image: ghcr.io/aadnehovda/swarm-mdns-publisher:latest
-    environment:
-      MDNS_DEFAULT_ADDRESS: "10.45.45.2"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     network_mode: host
